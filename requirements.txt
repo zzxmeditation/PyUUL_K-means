@@ -1,0 +1,7 @@
+biopython==1.81
+numpy==1.23.5
+pandas==2.0.0
+pyuul==0.4.2
+scikit_learn==1.2.2
+streamlit==1.24.1
+torch==2.0.1
