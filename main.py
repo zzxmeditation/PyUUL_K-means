@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import torch
-from pyuul import VolumeMaker, utils
+from pyuul_kmeans import VolumeMaker, utils
 from sklearn.cluster import KMeans
 
 # Constants for file paths
