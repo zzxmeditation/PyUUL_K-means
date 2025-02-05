@@ -14,7 +14,7 @@ from sklearn.cluster import KMeans
 # Constants for file paths
 UPLOAD_FOLDER_PATH = "lig"
 TMP_FOLDER_PATH = "tmp"
-PDB_FOLDER_PATH = "4pepzip1"
+PDB_FOLDER_PATH = "4pepzip"
 USER_PDB_FOLDER_PATH = "user_pdb"
 RESULT_FOLDER_PATH = "result"
 RESULT_PDB_FOLDER_PATH = os.path.join(RESULT_FOLDER_PATH, "pdb")  # 结果中的 PDB 文件夹
