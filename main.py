@@ -126,6 +126,7 @@ def main():
     clear_folder(UPLOAD_FOLDER_PATH)
     clear_folder(RESULT_PDB_FOLDER_PATH)
     clear_folder(USER_PDB_FOLDER_PATH)
+    clear_folder('pdb')
 
     st.title("K-Means Clustering with PyUUL")
 
