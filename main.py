@@ -20,7 +20,7 @@ RESULT_FOLDER_PATH = "result"
 RESULT_PDB_FOLDER_PATH = os.path.join(RESULT_FOLDER_PATH, "pdb")  # 结果中的 PDB 文件夹
 
 # Device selection
-device = "cuda"
+device = "cpu"
 
 
 # Set a random seed function
