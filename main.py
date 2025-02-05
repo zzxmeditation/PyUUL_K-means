@@ -1,6 +1,8 @@
 import os
+import pathlib
 import random
 import shutil
+import zipfile
 
 import numpy as np
 import pandas as pd
@@ -12,13 +14,13 @@ from sklearn.cluster import KMeans
 # Constants for file paths
 UPLOAD_FOLDER_PATH = "lig"
 TMP_FOLDER_PATH = "tmp"
-PDB_FOLDER_PATH = "pdb"
+PDB_FOLDER_PATH = "4pepzip"
 USER_PDB_FOLDER_PATH = "user_pdb"
 RESULT_FOLDER_PATH = "result"
 RESULT_PDB_FOLDER_PATH = os.path.join(RESULT_FOLDER_PATH, "pdb")  # 结果中的 PDB 文件夹
 
 # Device selection
-device = "cpu"
+device = "cuda"
 
 
 # Set a random seed function
@@ -119,7 +121,7 @@ def kmeans_clustering(ligand_path, peptide_folder_path, tmp_folder, n_clusters, 
 # Streamlit app main function
 def main():
     # Clear folders at the start of the app
-    global peptide_folder_path
+    global peptide_folder_path, peptide_file_path
     clear_folder(RESULT_FOLDER_PATH)
     clear_folder(UPLOAD_FOLDER_PATH)
     clear_folder(RESULT_PDB_FOLDER_PATH)
@@ -169,9 +171,7 @@ def main():
 
             os.makedirs(USER_PDB_FOLDER_PATH, exist_ok=True)
             for uploaded_file in uploaded_peptides:
-                # st.write(f"Processing file: {uploaded_file.name}")
                 peptide_file_path = os.path.join(USER_PDB_FOLDER_PATH, uploaded_file.name)
-                # st.write(f"Saving to:"f" {peptide_file_path}")
                 with open(peptide_file_path, "wb") as f:
                     f.write(uploaded_file.getbuffer())
             st.success(f"{len(uploaded_peptides)} peptide files uploaded successfully.")
@@ -187,7 +187,14 @@ def main():
         st.write("Running clustering...")
         set_random_seed(100)  # Set random seed for reproducibility
         # st.write(peptide_folder_path)
-        kmeans_clustering(UPLOAD_FOLDER_PATH, peptide_folder_path, TMP_FOLDER_PATH, num_clusters, num_iterations)
+        if '4pepzip' in peptide_folder_path:
+            pepzips = pathlib.Path(peptide_folder_path)
+            for pepzip in pepzips.iterdir():
+                azip = zipfile.ZipFile(pepzip)
+                azip.extractall(path='pdb')
+            kmeans_clustering(UPLOAD_FOLDER_PATH, 'pdb', TMP_FOLDER_PATH, num_clusters, num_iterations)
+        else:
+            kmeans_clustering(UPLOAD_FOLDER_PATH, peptide_folder_path, TMP_FOLDER_PATH, num_clusters, num_iterations)
         st.write("Clustering completed!")
 
         # Display results
