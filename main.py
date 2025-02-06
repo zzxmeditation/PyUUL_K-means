@@ -14,17 +14,22 @@ from sklearn.cluster import KMeans
 # Constants for file paths
 UPLOAD_FOLDER_PATH = "lig"
 TMP_FOLDER_PATH = "tmp"
-PDB_FOLDER_PATH = "4pepzip1"
+PDB_FOLDER_PATH = "4pepzip"
 USER_PDB_FOLDER_PATH = "user_pdb"
 RESULT_FOLDER_PATH = "result"
-RESULT_PDB_FOLDER_PATH = os.path.join(RESULT_FOLDER_PATH, "pdb")  # 结果中的 PDB 文件夹
+RESULT_PDB_FOLDER_PATH = os.path.join(RESULT_FOLDER_PATH, "pdb")
 
 # Device selection
 device = "cpu"
 
 
-# Set a random seed function
 def set_random_seed(seed=100):
+    """
+    Set random seed for reproducibility across multiple libraries.
+
+    Args:
+        seed (int): Random seed value.
+    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -32,26 +37,46 @@ def set_random_seed(seed=100):
     torch.backends.cudnn.deterministic = True
 
 
-# Clear all files in a folder
 def clear_folder(folder_path):
+    """
+    Clear all files in a specified folder.
+
+    Args:
+        folder_path (str): Path to the folder to be cleared.
+    """
     for filename in os.listdir(folder_path):
         file_path = os.path.join(folder_path, filename)
         if os.path.isfile(file_path):
             try:
                 os.remove(file_path)
             except FileNotFoundError:
-                pass  # 如果文件不存在，忽略
+                pass
 
 
-# Cleanup files in a given folder that are not part of the 'files' list
 def clean_not_folder(files, folder):
+    """
+    Remove files in a folder that are not in the specified list.
+
+    Args:
+        files (list): List of filenames to keep.
+        folder (str): Path to the folder to clean.
+    """
     for filename in os.listdir(folder):
         if filename not in files:
             os.remove(os.path.join(folder, filename))
 
 
-# Perform the clustering
 def pyuul_clustering(folder, n_clusters):
+    """
+    Perform clustering using PyUUL and KMeans.
+
+    Args:
+        folder (str): Path to the folder containing PDB files.
+        n_clusters (int): Number of clusters for KMeans.
+
+    Returns:
+        list: List of PDB filenames in the same cluster as the ligand.
+    """
     coords, atname, pdbname, pdb_num = utils.parsePDB(folder)
     radius = utils.atomlistToRadius(atname)
 
@@ -67,50 +92,43 @@ def pyuul_clustering(folder, n_clusters):
     result_dict = dict(zip(pdbname, y))
     ligand_class = result_dict['lig.pdb']
 
-    # 获取和lig一个类别的四肽分子的名称
     return [key for key, value in result_dict.items() if value == ligand_class]
 
 
 outlist = []
 
 
-# Main clustering function
-def kmeans_clustering(ligand_path, peptide_folder_path, tmp_folder, n_clusters, iterations):
-    # Iterate over the number of iterations
+def kmeans_clustering(ligand_path, tmp_folder, n_clusters, iterations):
+    """
+    Perform iterative KMeans clustering and save results.
+
+    Args:
+        ligand_path (str): Path to the ligand file.
+        tmp_folder (str): Path to the temporary folder for processing.
+        n_clusters (int): Number of clusters for KMeans.
+        iterations (int): Number of iterations to perform.
+    """
     for i in range(iterations):
         if i == 0:
-            clear_folder(tmp_folder)  # 先清空tmp文件夹
             shutil.copytree(ligand_path, tmp_folder, dirs_exist_ok=True)
-            shutil.copytree(peptide_folder_path, tmp_folder, dirs_exist_ok=True)
-
-            # 聚类后和ligand一类的pep的名称
             output = pyuul_clustering(tmp_folder, n_clusters)
             outlist.append(output)
-            # Fix the path by using os.path.join for proper path handling
             path_csv = os.path.join(RESULT_FOLDER_PATH, f"kmeans-{i + 1}.csv")
-            # Save results to CSV
             pd.DataFrame({'Name': output}).to_csv(path_csv, index=False)
-
         else:
-            # Clean up non-relevant files after each iteration
             clean_not_folder(outlist[i - 1], tmp_folder)
-            # 聚类后和ligand一类的pep的名称
             output = pyuul_clustering(tmp_folder, n_clusters)
             outlist.append(output)
             path_csv = os.path.join(RESULT_FOLDER_PATH, f"kmeans-{i + 1}.csv")
-            # Save results to CSV
             pd.DataFrame({'Name': output}).to_csv(path_csv, index=False)
 
-    # After the last iteration, copy the PDB files listed in the final CSV to result/pdb
     final_csv_path = os.path.join(RESULT_FOLDER_PATH, f"kmeans-{iterations}.csv")
     if os.path.exists(final_csv_path):
         final_df = pd.read_csv(final_csv_path)
         pdb_files = final_df['Name'].tolist()
 
-        # Create the result/pdb folder if it doesn't exist
         os.makedirs(RESULT_PDB_FOLDER_PATH, exist_ok=True)
 
-        # Copy the PDB files to result/pdb
         for pdb_file in pdb_files:
             src_path = os.path.join(tmp_folder, pdb_file)
             dst_path = os.path.join(RESULT_PDB_FOLDER_PATH, pdb_file)
@@ -118,87 +136,69 @@ def kmeans_clustering(ligand_path, peptide_folder_path, tmp_folder, n_clusters, 
                 shutil.copy(src_path, dst_path)
 
 
-# Streamlit app main function
 def main():
-    # Clear folders at the start of the app
-    global peptide_folder_path, peptide_file_path
+    """
+    Main function to run the Streamlit app.
+    """
+    peptide_folder_path = PDB_FOLDER_PATH
     clear_folder(RESULT_FOLDER_PATH)
     clear_folder(UPLOAD_FOLDER_PATH)
     clear_folder(RESULT_PDB_FOLDER_PATH)
     clear_folder(USER_PDB_FOLDER_PATH)
-    clear_folder('pdb')
+    clear_folder(TMP_FOLDER_PATH)
 
     st.title("K-Means Clustering with PyUUL")
 
-    # Sidebar for user inputs
     st.sidebar.header("Input Parameters")
-    num_clusters = st.sidebar.slider("Number of Clusters", min_value=2, max_value=10, value=2)
-    num_iterations = st.sidebar.slider("Number of Iterations", min_value=1, max_value=10, value=2)
+    num_clusters = st.sidebar.slider("Number of Clusters", min_value=2, max_value=100, value=2)
+    num_iterations = st.sidebar.slider("Number of Iterations", min_value=1, max_value=100, value=2)
 
-    # Main content
     st.write("### Clustering Parameters")
     st.write(f"Number of Clusters: {num_clusters}")
     st.write(f"Number of Iterations: {num_iterations}")
 
-    # File upload for ligand
     st.sidebar.header("Upload Ligand File")
     uploaded_ligand = st.sidebar.file_uploader("Upload a ligand file (PDB format)", type="pdb")
 
     if uploaded_ligand is not None:
-        # Save the uploaded ligand file to the UPLOAD_FOLDER_PATH
         os.makedirs(UPLOAD_FOLDER_PATH, exist_ok=True)
         lig_file_path = os.path.join(UPLOAD_FOLDER_PATH, "lig.pdb")
         with open(lig_file_path, "wb") as f:
             f.write(uploaded_ligand.getbuffer())
         st.success(f"Ligand file uploaded successfully: {uploaded_ligand.name}")
 
-    peptide_folder_path = PDB_FOLDER_PATH
-
-    # Initialize session state for button
     if 'use_user_pdb' not in st.session_state:
         st.session_state.use_user_pdb = False
 
-    # Button to switch to user's PDB database
     if st.sidebar.button('Use Your PDB Database'):
         st.session_state.use_user_pdb = not st.session_state.use_user_pdb
 
     if st.session_state.use_user_pdb:
-        # File upload for peptide files
         st.sidebar.header("Upload Peptide Files")
-        uploaded_peptides = st.sidebar.file_uploader("Upload peptide files (PDB format)", type="pdb",
-                                                     accept_multiple_files=True)
+        uploaded_peptides = st.sidebar.file_uploader("Upload peptide files (zip format)", type="zip")
 
         if uploaded_peptides is not None:
-
             os.makedirs(USER_PDB_FOLDER_PATH, exist_ok=True)
-            for uploaded_file in uploaded_peptides:
-                peptide_file_path = os.path.join(USER_PDB_FOLDER_PATH, uploaded_file.name)
-                with open(peptide_file_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-            st.success(f"{len(uploaded_peptides)} peptide files uploaded successfully.")
+            peptide_file_path = os.path.join(USER_PDB_FOLDER_PATH, uploaded_peptides.name)
+            with open(peptide_file_path, "wb") as f:
+                f.write(uploaded_peptides.getbuffer())
+            st.success("Peptide files uploaded successfully.")
             peptide_folder_path = USER_PDB_FOLDER_PATH
-
         else:
             peptide_folder_path = PDB_FOLDER_PATH
             st.warning("No files uploaded or uploaded_peptides is None.")
 
-    # st.write(peptide_folder_path)
-
     if st.button("Run Clustering"):
         st.write("Running clustering...")
-        set_random_seed(100)  # Set random seed for reproducibility
-        # st.write(peptide_folder_path)
-        if '4pepzip' in peptide_folder_path:
-            pepzips = pathlib.Path(peptide_folder_path)
-            for pepzip in pepzips.iterdir():
-                azip = zipfile.ZipFile(pepzip)
-                azip.extractall(path='pdb')
-            kmeans_clustering(UPLOAD_FOLDER_PATH, 'pdb', TMP_FOLDER_PATH, num_clusters, num_iterations)
-        else:
-            kmeans_clustering(UPLOAD_FOLDER_PATH, peptide_folder_path, TMP_FOLDER_PATH, num_clusters, num_iterations)
+        set_random_seed(100)
+
+        pepzips = pathlib.Path(peptide_folder_path)
+        for pepzip in pepzips.iterdir():
+            azip = zipfile.ZipFile(pepzip)
+            azip.extractall(path='tmp')
+        kmeans_clustering(UPLOAD_FOLDER_PATH, TMP_FOLDER_PATH, num_clusters, num_iterations)
         st.write("Clustering completed!")
 
-        # Display results
         st.write("### Clustering Results")
         for i in range(num_iterations):
             result_file = os.path.join(RESULT_FOLDER_PATH, f"kmeans-{i + 1}.csv")
@@ -207,7 +207,6 @@ def main():
                 st.write(f"Iteration {i + 1} Results:")
                 st.dataframe(result_df)
 
-        # Add download button for the result folder
         st.write("### Download Result Folder")
         if os.path.exists(RESULT_FOLDER_PATH):
             shutil.make_archive("result", "zip", RESULT_FOLDER_PATH)
