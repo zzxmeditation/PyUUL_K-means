@@ -1,3 +1,4 @@
+# 将160000个多肽分为10个压缩包，放到1个文件夹，读取这个文件夹，并解压到tmp文件夹
 import os
 import pathlib
 import random
@@ -75,14 +76,11 @@ outlist = []
 
 
 # Main clustering function
-def kmeans_clustering(ligand_path, peptide_folder_path, tmp_folder, n_clusters, iterations):
+def kmeans_clustering(ligand_path, tmp_folder, n_clusters, iterations):
     # Iterate over the number of iterations
     for i in range(iterations):
         if i == 0:
-            clear_folder(tmp_folder)  # 先清空tmp文件夹
             shutil.copytree(ligand_path, tmp_folder, dirs_exist_ok=True)
-            shutil.copytree(peptide_folder_path, tmp_folder, dirs_exist_ok=True)
-
             # 聚类后和ligand一类的pep的名称
             output = pyuul_clustering(tmp_folder, n_clusters)
             outlist.append(output)
@@ -121,12 +119,12 @@ def kmeans_clustering(ligand_path, peptide_folder_path, tmp_folder, n_clusters, 
 # Streamlit app main function
 def main():
     # Clear folders at the start of the app
-    global peptide_folder_path, peptide_file_path
+    peptide_folder_path = PDB_FOLDER_PATH
+    #global peptide_folder_path
     clear_folder(RESULT_FOLDER_PATH)
     clear_folder(UPLOAD_FOLDER_PATH)
     clear_folder(RESULT_PDB_FOLDER_PATH)
     clear_folder(USER_PDB_FOLDER_PATH)
-    clear_folder('pdb')
 
     st.title("K-Means Clustering with PyUUL")
 
@@ -152,8 +150,6 @@ def main():
             f.write(uploaded_ligand.getbuffer())
         st.success(f"Ligand file uploaded successfully: {uploaded_ligand.name}")
 
-    peptide_folder_path = PDB_FOLDER_PATH
-
     # Initialize session state for button
     if 'use_user_pdb' not in st.session_state:
         st.session_state.use_user_pdb = False
@@ -165,17 +161,16 @@ def main():
     if st.session_state.use_user_pdb:
         # File upload for peptide files
         st.sidebar.header("Upload Peptide Files")
-        uploaded_peptides = st.sidebar.file_uploader("Upload peptide files (PDB format)", type="pdb",
-                                                     accept_multiple_files=True)
+        uploaded_peptides = st.sidebar.file_uploader("Upload peptide files (zip format)", type="zip")
 
         if uploaded_peptides is not None:
 
             os.makedirs(USER_PDB_FOLDER_PATH, exist_ok=True)
-            for uploaded_file in uploaded_peptides:
-                peptide_file_path = os.path.join(USER_PDB_FOLDER_PATH, uploaded_file.name)
-                with open(peptide_file_path, "wb") as f:
-                    f.write(uploaded_file.getbuffer())
-            st.success(f"{len(uploaded_peptides)} peptide files uploaded successfully.")
+
+            peptide_file_path = os.path.join(USER_PDB_FOLDER_PATH, uploaded_peptides.name)
+            with open(peptide_file_path, "wb") as f:
+                f.write(uploaded_peptides.getbuffer())
+            st.success(f"peptide files uploaded successfully.")
             peptide_folder_path = USER_PDB_FOLDER_PATH
 
         else:
@@ -188,14 +183,12 @@ def main():
         st.write("Running clustering...")
         set_random_seed(100)  # Set random seed for reproducibility
         # st.write(peptide_folder_path)
-        if '4pepzip' in peptide_folder_path:
-            pepzips = pathlib.Path(peptide_folder_path)
-            for pepzip in pepzips.iterdir():
-                azip = zipfile.ZipFile(pepzip)
-                azip.extractall(path='pdb')
-            kmeans_clustering(UPLOAD_FOLDER_PATH, 'pdb', TMP_FOLDER_PATH, num_clusters, num_iterations)
-        else:
-            kmeans_clustering(UPLOAD_FOLDER_PATH, peptide_folder_path, TMP_FOLDER_PATH, num_clusters, num_iterations)
+
+        pepzips = pathlib.Path(peptide_folder_path)
+        for pepzip in pepzips.iterdir():
+            azip = zipfile.ZipFile(pepzip)
+            azip.extractall(path='tmp')
+        kmeans_clustering(UPLOAD_FOLDER_PATH, TMP_FOLDER_PATH, num_clusters, num_iterations)
         st.write("Clustering completed!")
 
         # Display results
