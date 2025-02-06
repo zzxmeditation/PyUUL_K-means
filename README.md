@@ -1,7 +1,7 @@
 # K-Means Clustering with PyUUL
 
 This is a Streamlit-based web application for performing K-Means clustering on molecular structures using PyUUL. The application allows users to upload ligand and peptide files, process them, and cluster them based on their molecular features.
-
+We also host the model on the [HuggingFace Spaces](https://huggingface.co/spaces/ouczzx1999/pyuul-kmeans), so you can start your inference using just your browser.
 ## Features
 - Upload ligand (PDB format)
 - Perform K-Means clustering using PyUUL and KMeans from `sklearn`
